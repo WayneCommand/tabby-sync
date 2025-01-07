@@ -1,4 +1,4 @@
-# tabby-api
+# tabby-sync
 
 ## KV
 

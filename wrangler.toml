@@ -1,5 +1,5 @@
 #:schema node_modules/wrangler/config-schema.json
-name = "tabby-api"
+name = "tabby-sync"
 main = "src/index.ts"
 compatibility_date = "2024-12-30"
 compatibility_flags = ["nodejs_compat"]
@@ -80,7 +80,7 @@ enabled = true
 [[kv_namespaces]]
 binding = "TABBY_STORE"
 id = "fa9a1aa17c924f3f9ee8c8a9167a36a0"
-preview_id = "fa9a1aa17c924f3f9ee8c8a9167a36a0"
+# preview_id = "fa9a1aa17c924f3f9ee8c8a9167a36a0"
 
 # Bind an mTLS certificate. Use to present a client certificate when communicating with another service.
 # Docs: https://developers.cloudflare.com/workers/wrangler/configuration/#mtls-certificates
