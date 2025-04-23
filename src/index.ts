@@ -11,6 +11,7 @@
  * Learn more at https://developers.cloudflare.com/workers/
  */
 import {UserService} from "./api/user";
+import {GithubService} from "./api/github";
 import {ConfigService, Config} from "./api/config";
 
 export default {
@@ -23,6 +24,7 @@ export default {
 		const db = env.TABBY_STORE;
 		const userService = new UserService(db);
 		const configService = new ConfigService(db);
+		const githubService = new GithubService(db, env.GH_CLIENT_ID, env.GH_CLIENT_SECRET);
 
 		const user_api = new URLPattern({pathname: "/api/1/users"});
 		if (user_api.test(url)) {
@@ -127,6 +129,45 @@ export default {
 					}
 				]
 			);
+		}
+
+		// GitHub 同意屏幕认证请求
+		const github_request_api = new URLPattern({pathname: "/gh/auth/request"});
+		if (github_request_api.test(url)) {
+			switch (method) {
+				case "GET": {
+					const authUrl = await githubService.generateAuthUrl()
+					return Response.json({authUrl})
+				}
+				default: {
+					return methodNotAllowed();
+				}
+			}
+		}
+
+		// GitHub 认证完成的回调
+		const github_complete_api = new URLPattern({pathname: "/gh/auth/complete"});
+		if (github_complete_api.test(url)) {
+			switch (method) {
+				case "GET": {
+					let code = await githubService.verifyCode(url)
+
+					console.log("github complete code: ", code)
+
+					// 拿到 Code 之后，立刻去获取 token，Code的时效非常短且只能使用一次
+					// 拿到 AccessToken 之后，保存一段时间，可以重复使用
+					if (code) {
+						const token = await githubService.getToken(code)
+						return Response.json(token)
+					}
+
+					// 其他情况
+					return Response.json({"status": "invalid code"}, {status: 400})
+				}
+				default: {
+					return methodNotAllowed();
+				}
+			}
 		}
 
 
