@@ -1,7 +1,8 @@
 import {OpenAPIRoute} from "chanfana";
 import {z} from "zod";
-import {UserService} from "./user";
+import {UserService} from "../service/user";
 import {userKey} from "../service/util";
+import { SyncError } from "../service/store";
 
 const redirect_uri = "http://tabby.waynecommand.com/gh/auth/complete"
 
@@ -158,7 +159,7 @@ export class GithubAuthRequest extends OpenAPIRoute {
     };
 
     async handle(c: any) {
-        const githubService = new GithubService(c.env.TABBY_STORE, c.env.GH_CLIENT_ID, c.env.GH_CLIENT_SECRET);
+        const githubService = new GithubService(c.env.KV, c.env.GH_CLIENT_ID, c.env.GH_CLIENT_SECRET);
         const authUrl = await githubService.generateAuthUrl();
         return c.json({ authUrl });
     }
@@ -185,43 +186,55 @@ export class GithubAuthComplete extends OpenAPIRoute {
     };
 
     async handle(c: any) {
-        const url = new URL(c.req.url);
-        const githubService = new GithubService(c.env.TABBY_STORE, c.env.GH_CLIENT_ID, c.env.GH_CLIENT_SECRET);
-        const userService = new UserService(c.env.TABBY_STORE);
+        try {
+            const url = new URL(c.req.url);
+            const githubService = new GithubService(c.env.KV, c.env.GH_CLIENT_ID, c.env.GH_CLIENT_SECRET);
+            const userService = new UserService(c.env.KV);
 
-        let code = await githubService.verifyCode(url);
-        if (!code) {
-            return c.json({ status: "Invalid request" }, 400);
+            let code = await githubService.verifyCode(url);
+            if (!code) {
+                return c.json({ status: "Invalid request" }, 400);
+            }
+
+            const token = await githubService.getToken(code);
+            if (!token || !token.access_token) {
+                return c.json({ status: "Invalid request" }, 400);
+            }
+
+            const user_gh = await githubService.getUserInfo(token.access_token);
+            if (!user_gh) {
+                return c.json({ status: "Invalid request" }, 400);
+            }
+
+            const tabbyUserKey = await userKey(user_gh.node_id, c.env.NAMESPACE_ID);
+
+            try {
+                if (await userService.findByToken(tabbyUserKey) === null) {
+                    let _init_u = {
+                        username: user_gh.name || user_gh.login,
+                        config_sync_token: tabbyUserKey,
+                        github_username: user_gh.login,
+                        active_config: 0,
+                        custom_connection_gateway: null,
+                        custom_connection_gateway_token: null,
+                        is_pro: true,
+                        is_sponsor: false
+                    };
+                    await userService.create(_init_u);
+                }
+            } catch (error) {
+                if (error instanceof SyncError) {
+                    console.error('SyncError during user creation:', error);
+                } else {
+                    console.error('Unexpected error during user creation:', error);
+                }
+            }
+
+            return c.redirect(`/complete.html?userKey=${tabbyUserKey}`);
+        } catch (error) {
+            console.error('Unexpected error in GithubAuthComplete:', error);
+            return c.json({ status: "Internal server error" }, 500);
         }
-
-        const token = await githubService.getToken(code);
-        if (!token || !token.access_token) {
-            return c.json({ status: "Invalid request" }, 400);
-        }
-
-        const user_gh = await githubService.getUserInfo(token.access_token);
-        if (!user_gh) {
-            return c.json({ status: "Invalid request" }, 400);
-        }
-
-        const tabbyUserKey = await userKey(user_gh.node_id, c.env.NAMESPACE_ID);
-
-        if (await userService.query(tabbyUserKey) === null) {
-            let _init_u = {
-                username: user_gh.name || user_gh.login,
-                config_sync_token: tabbyUserKey,
-                github_username: user_gh.login,
-                id: 0,
-                active_config: 0,
-                custom_connection_gateway: "",
-                custom_connection_gateway_token: "",
-                is_pro: true,
-                is_sponsor: false
-            };
-            await userService.add(_init_u);
-        }
-
-        return c.redirect(`/complete.html?userKey=${tabbyUserKey}`);
     }
 }
 

@@ -1,137 +1,23 @@
 import {OpenAPIRoute} from "chanfana";
 import {z} from "zod";
-import {UserService} from "./user";
-
-class ConfigService {
-
-	db: KVNamespace;
-
-	constructor(_db: KVNamespace) {
-		this.db = _db;
-	}
-
-	async queryByUser(userId: number): Promise<Config[]> {
-		let userConfigs: Config[] = []
-
-		let configs = await this.db.get("tabby-configs");
-		if (configs === null) return userConfigs;
-
-		let all: Config[] = JSON.parse(configs);
-
-		for (let config of all)
-			if (config.user === userId)
-				userConfigs.push(config);
-
-		return userConfigs;
-	}
-
-	async queryById(id: number): Promise<Config | null> {
-		let configs = await this.db.get("tabby-configs");
-		if (configs === null) return null;
-
-		let all: Config[] = JSON.parse(configs);
-		for (let config of all){
-			if (config.id === id){
-				return config;
-			}
-		}
-
-		return null;
-	}
-
-	async addConfig(config: Config, user: number): Promise<Config> {
-		let all: Config[] = [];
-
-		let configs = await this.db.get("tabby-configs");
-		if (configs) {
-			all = JSON.parse(configs);
-		}
-
-		config.id = nextId(all)
-		config.content = "{}"
-		config.created_at = new Date().toISOString()
-		config.modified_at = new Date().toISOString()
-		config.user = user
-
-		all.push(config);
-
-		await this.db.put("tabby-configs", JSON.stringify(all));
-
-		return config;
-	}
-
-	async updateConfig(config: Config, id: number): Promise<Config | null> {
-		let entity: Config | null = null;
-
-		// 获取全部配置
-		let configs = await this.db.get("tabby-configs");
-		if (configs === null) return null; // not possible
-		let all: Config[] = JSON.parse(configs);
-
-		// 找到要更新的配置
-		for (let _config of all) {
-			if (_config.id === id) {
-				// 只更新这三个字段
-				_config.content = config.content
-				_config.last_used_with_version = config.last_used_with_version
-				_config.modified_at = new Date().toISOString()
-				entity = _config;
-			}
-		}
-
-		// 更新
-		await this.db.put("tabby-configs", JSON.stringify(all));
-
-		// 返回更新好的数据
-		return entity;
-	}
-
-	async deleteConfig(id: number): Promise<null> {
-		// 获取全部配置
-		let configs = await this.db.get("tabby-configs");
-		if (configs === null) return null; // not possible
-		let all: Config[] = JSON.parse(configs);
-
-		// 过滤掉这个 id， 然后再保存
-		all = all.filter(config => config.id !== id);
-
-		await this.db.put("tabby-configs", JSON.stringify(all));
-
-		return null;
-	}
-
-}
-
-function nextId(configs: Config[]): number {
-	let maxId = 0;
-
-	for (let config of configs) {
-		if (config.id > maxId)
-			maxId = config.id;
-	}
-
-	return maxId + 1;
-}
-
-export const ConfigSchema = z.object({
-	id: z.number(),
-	name: z.string(),
-	content: z.string(),
-	last_used_with_version: z.string(),
-	created_at: z.string(),
-	modified_at: z.string(),
-	user: z.number()
-});
+import {UserService} from "../service/user";
+import {ConfigService, ConfigSchema, Config} from "../service/config";
+import { SyncError } from "../service/store";
 
 async function getUserId(c: any) {
-	const authHeader = c.req.header("Authorization");
-	if (!authHeader || !authHeader.startsWith("Bearer ")) {
+	try {
+		const authHeader = c.req.header("Authorization");
+		if (!authHeader || !authHeader.startsWith("Bearer ")) {
+			return null;
+		}
+		const token = authHeader.substring(7);
+		const userService = new UserService(c.env.KV);
+		const user = await userService.findByToken(token);
+		return user ? user.id : null;
+	} catch (error) {
+		console.error('Error getting user ID:', error);
 		return null;
 	}
-	const token = authHeader.substring(7);
-	const userService = new UserService(c.env.TABBY_STORE);
-	const user = await userService.query(token);
-	return user ? user.id : null;
 }
 
 export class ListConfigs extends OpenAPIRoute {
@@ -152,12 +38,24 @@ export class ListConfigs extends OpenAPIRoute {
 	};
 
 	async handle(c: any) {
-		const uid = await getUserId(c);
-		if (uid === null) return c.json({ status: "Unauthorized" }, 401);
+		try {
+			const uid = await getUserId(c);
+			if (uid === null) return c.json({ status: "Unauthorized" }, 401);
 
-		const configService = new ConfigService(c.env.TABBY_STORE);
-		const configs = await configService.queryByUser(uid);
-		return c.json(configs);
+			const configService = new ConfigService(c.env.KV);
+			const configs = await configService.findByUser(uid);
+			return c.json(configs);
+		} catch (error) {
+			if (error instanceof SyncError) {
+				return c.json({ 
+					error: error.message, 
+					code: error.code,
+					context: error.context 
+				}, 400);
+			}
+			console.error('Unexpected error in ListConfigs:', error);
+			return c.json({ error: "Internal server error" }, 500);
+		}
 	}
 }
 
@@ -169,7 +67,11 @@ export class CreateConfig extends OpenAPIRoute {
 			body: {
 				content: {
 					"application/json": {
-						schema: ConfigSchema.omit({ id: true, created_at: true, modified_at: true, user: true }),
+						schema: ConfigSchema.omit({ id: true, created_at: true, modified_at: true, user: true }).extend({
+							name: z.string().min(1).max(100).describe("Configuration name"),
+							content: z.string().optional().describe("Configuration content as JSON string"),
+							last_used_with_version: z.string().optional().describe("Tabby version last used with this config")
+						}),
 					},
 				},
 			},
@@ -188,13 +90,25 @@ export class CreateConfig extends OpenAPIRoute {
 	};
 
 	async handle(c: any) {
-		const uid = await getUserId(c);
-		if (uid === null) return c.json({ status: "Unauthorized" }, 401);
+		try {
+			const uid = await getUserId(c);
+			if (uid === null) return c.json({ status: "Unauthorized" }, 401);
 
-		const body = await c.req.json();
-		const configService = new ConfigService(c.env.TABBY_STORE);
-		const config = await configService.addConfig(body, uid);
-		return c.json(config);
+			const body = await c.req.json();
+			const configService = new ConfigService(c.env.KV);
+			const config = await configService.create(body, uid);
+			return c.json(config);
+		} catch (error) {
+			if (error instanceof SyncError) {
+				return c.json({ 
+					error: error.message, 
+					code: error.code,
+					context: error.context 
+				}, 400);
+			}
+			console.error('Unexpected error in CreateConfig:', error);
+			return c.json({ error: "Internal server error" }, 500);
+		}
 	}
 }
 
@@ -204,7 +118,7 @@ export class GetConfig extends OpenAPIRoute {
 		summary: "Get configuration by ID",
 		request: {
 			params: z.object({
-				id: z.string().describe("Config ID"),
+				id: z.string().regex(/^\d+$/, "Config ID must be a number").describe("Config ID"),
 			}),
 		},
 		responses: {
@@ -222,16 +136,32 @@ export class GetConfig extends OpenAPIRoute {
 	};
 
 	async handle(c: any) {
-		const uid = await getUserId(c);
-		if (uid === null) return c.json({ status: "Unauthorized" }, 401);
+		try {
+			const uid = await getUserId(c);
+			if (uid === null) return c.json({ status: "Unauthorized" }, 401);
 
-		const { id } = c.req.valid("param");
-		const configService = new ConfigService(c.env.TABBY_STORE);
-		const conf = await configService.queryById(parseInt(id));
-		if (conf) {
-			return c.json(conf);
+			const { id } = c.req.valid("param");
+			const configService = new ConfigService(c.env.KV);
+			const conf = await configService.findById(parseInt(id));
+			
+			if (conf) {
+				if (conf.user !== uid) {
+					return c.json({ status: "Unauthorized" }, 401);
+				}
+				return c.json(conf);
+			}
+			return c.json({ status: "Not found" }, 404);
+		} catch (error) {
+			if (error instanceof SyncError) {
+				return c.json({ 
+					error: error.message, 
+					code: error.code,
+					context: error.context 
+				}, 400);
+			}
+			console.error('Unexpected error in GetConfig:', error);
+			return c.json({ error: "Internal server error" }, 500);
 		}
-		return c.json({ status: "Not found" }, 404);
 	}
 }
 
@@ -246,7 +176,11 @@ export class UpdateConfig extends OpenAPIRoute {
 			body: {
 				content: {
 					"application/json": {
-						schema: ConfigSchema.partial().omit({ id: true, created_at: true, modified_at: true, user: true }),
+						schema: ConfigSchema.partial().omit({ id: true, created_at: true, modified_at: true, user: true }).extend({
+							name: z.string().min(1).max(100).optional().describe("Configuration name"),
+							content: z.string().optional().describe("Configuration content as JSON string"),
+							last_used_with_version: z.string().optional().describe("Tabby version last used with this config")
+						}),
 					},
 				},
 			},
@@ -266,17 +200,40 @@ export class UpdateConfig extends OpenAPIRoute {
 	};
 
 	async handle(c: any) {
-		const uid = await getUserId(c);
-		if (uid === null) return c.json({ status: "Unauthorized" }, 401);
+		try {
+			const uid = await getUserId(c);
+			if (uid === null) return c.json({ status: "Unauthorized" }, 401);
 
-		const { id } = c.req.valid("param");
-		const body = await c.req.json();
-		const configService = new ConfigService(c.env.TABBY_STORE);
-		const conf = await configService.updateConfig(body, parseInt(id));
-		if (conf) {
-			return c.json(conf);
+			const { id } = c.req.valid("param");
+			const body = await c.req.json();
+			
+			const configService = new ConfigService(c.env.KV);
+			
+			// First check if config exists and belongs to user
+			const existingConfig = await configService.findById(parseInt(id));
+			if (!existingConfig) {
+				return c.json({ status: "Not found" }, 404);
+			}
+			if (existingConfig.user !== uid) {
+				return c.json({ status: "Unauthorized" }, 401);
+			}
+			
+			const conf = await configService.update(parseInt(id), body);
+			if (conf) {
+				return c.json(conf);
+			}
+			return c.json({ status: "Not found" }, 404);
+		} catch (error) {
+			if (error instanceof SyncError) {
+				return c.json({ 
+					error: error.message, 
+					code: error.code,
+					context: error.context 
+				}, 400);
+			}
+			console.error('Unexpected error in UpdateConfig:', error);
+			return c.json({ error: "Internal server error" }, 500);
 		}
-		return c.json({ status: "Not found" }, 404);
 	}
 }
 
@@ -286,7 +243,7 @@ export class DeleteConfig extends OpenAPIRoute {
 		summary: "Delete configuration",
 		request: {
 			params: z.object({
-				id: z.string().describe("Config ID"),
+				id: z.string().regex(/^\d+$/, "Config ID must be a number").describe("Config ID"),
 			}),
 		},
 		responses: {
@@ -304,27 +261,36 @@ export class DeleteConfig extends OpenAPIRoute {
 	};
 
 	async handle(c: any) {
-		const uid = await getUserId(c);
-		if (uid === null) return c.json({ status: "Unauthorized" }, 401);
+		try {
+			const uid = await getUserId(c);
+			if (uid === null) return c.json({ status: "Unauthorized" }, 401);
 
-		const { id } = c.req.valid("param");
-		const configService = new ConfigService(c.env.TABBY_STORE);
-		await configService.deleteConfig(parseInt(id));
-		return c.json(null);
+			const { id } = c.req.valid("param");
+			const configService = new ConfigService(c.env.KV);
+			
+			// First check if config exists and belongs to user
+			const existingConfig = await configService.findById(parseInt(id));
+			if (!existingConfig) {
+				return c.json({ status: "Not found" }, 404);
+			}
+			if (existingConfig.user !== uid) {
+				return c.json({ status: "Unauthorized" }, 401);
+			}
+			
+			await configService.delete(parseInt(id));
+			return c.json(null);
+		} catch (error) {
+			if (error instanceof SyncError) {
+				return c.json({ 
+					error: error.message, 
+					code: error.code,
+					context: error.context 
+				}, 400);
+			}
+			console.error('Unexpected error in DeleteConfig:', error);
+			return c.json({ error: "Internal server error" }, 500);
+		}
 	}
 }
 
-// {
-//     "id": 5,
-//     "name": "Windows11",
-//     "content": "",
-//     "last_used_with_version": "1.0.189",
-//     "created_at": "2024-03-23T13:33:55.181686Z",
-//     "modified_at": "2024-03-23T14:46:08.604372Z",
-//     "user": 1
-//   }
-export type Config = z.infer<typeof ConfigSchema>;
-
-export {
-	ConfigService
-}
+export { Config }
