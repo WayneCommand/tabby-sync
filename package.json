@@ -1,20 +1,21 @@
 {
-  "name": "tabby-sync",
-  "version": "0.1",
-  "private": true,
-  "scripts": {
-    "deploy": "wrangler deploy",
-    "dev": "wrangler dev",
-    "start": "wrangler dev",
-    "remote": "wrangler dev --remote",
-    "test": "vitest",
-    "cf-typegen": "wrangler types"
-  },
-  "devDependencies": {
-    "@cloudflare/vitest-pool-workers": "^0.5.2",
-    "@cloudflare/workers-types": "^4.20241230.0",
-    "typescript": "^5.5.2",
-    "vitest": "2.1.8",
-    "wrangler": "^3.60.3"
-  }
+	"name": "tabby-sync",
+	"version": "0.0.1",
+	"private": true,
+	"scripts": {
+		"deploy": "wrangler deploy",
+		"dev": "wrangler dev",
+		"start": "wrangler dev",
+		"cf-typegen": "wrangler types"
+	},
+	"dependencies": {
+		"chanfana": "^2.6.3",
+		"hono": "^4.6.20",
+		"zod": "^3.24.1"
+	},
+	"devDependencies": {
+		"@types/node": "22.13.0",
+		"@types/service-worker-mock": "^2.0.4",
+		"wrangler": "^4.58.0"
+	}
 }
