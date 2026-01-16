@@ -1,3 +1,7 @@
+import {OpenAPIRoute} from "chanfana";
+import {z} from "zod";
+import {UserService} from "./user";
+
 class ConfigService {
 
 	db: KVNamespace;
@@ -109,6 +113,206 @@ function nextId(configs: Config[]): number {
 	return maxId + 1;
 }
 
+export const ConfigSchema = z.object({
+	id: z.number(),
+	name: z.string(),
+	content: z.string(),
+	last_used_with_version: z.string(),
+	created_at: z.string(),
+	modified_at: z.string(),
+	user: z.number()
+});
+
+async function getUserId(c: any) {
+	const authHeader = c.req.header("Authorization");
+	if (!authHeader || !authHeader.startsWith("Bearer ")) {
+		return null;
+	}
+	const token = authHeader.substring(7);
+	const userService = new UserService(c.env.TABBY_STORE);
+	const user = await userService.query(token);
+	return user ? user.id : null;
+}
+
+export class ListConfigs extends OpenAPIRoute {
+	schema = {
+		tags: ["Config"],
+		summary: "List configurations for current user",
+		responses: {
+			"200": {
+				description: "Successful response",
+				content: {
+					"application/json": {
+						schema: z.array(ConfigSchema),
+					},
+				},
+			},
+			"401": { description: "Unauthorized" },
+		},
+	};
+
+	async handle(c: any) {
+		const uid = await getUserId(c);
+		if (uid === null) return c.json({ status: "Unauthorized" }, 401);
+
+		const configService = new ConfigService(c.env.TABBY_STORE);
+		const configs = await configService.queryByUser(uid);
+		return c.json(configs);
+	}
+}
+
+export class CreateConfig extends OpenAPIRoute {
+	schema = {
+		tags: ["Config"],
+		summary: "Create a new configuration",
+		request: {
+			body: {
+				content: {
+					"application/json": {
+						schema: ConfigSchema.omit({ id: true, created_at: true, modified_at: true, user: true }),
+					},
+				},
+			},
+		},
+		responses: {
+			"200": {
+				description: "Successful response",
+				content: {
+					"application/json": {
+						schema: ConfigSchema,
+					},
+				},
+			},
+			"401": { description: "Unauthorized" },
+		},
+	};
+
+	async handle(c: any) {
+		const uid = await getUserId(c);
+		if (uid === null) return c.json({ status: "Unauthorized" }, 401);
+
+		const body = await c.req.json();
+		const configService = new ConfigService(c.env.TABBY_STORE);
+		const config = await configService.addConfig(body, uid);
+		return c.json(config);
+	}
+}
+
+export class GetConfig extends OpenAPIRoute {
+	schema = {
+		tags: ["Config"],
+		summary: "Get configuration by ID",
+		request: {
+			params: z.object({
+				id: z.string().describe("Config ID"),
+			}),
+		},
+		responses: {
+			"200": {
+				description: "Successful response",
+				content: {
+					"application/json": {
+						schema: ConfigSchema,
+					},
+				},
+			},
+			"401": { description: "Unauthorized" },
+			"404": { description: "Not found" },
+		},
+	};
+
+	async handle(c: any) {
+		const uid = await getUserId(c);
+		if (uid === null) return c.json({ status: "Unauthorized" }, 401);
+
+		const { id } = c.req.valid("param");
+		const configService = new ConfigService(c.env.TABBY_STORE);
+		const conf = await configService.queryById(parseInt(id));
+		if (conf) {
+			return c.json(conf);
+		}
+		return c.json({ status: "Not found" }, 404);
+	}
+}
+
+export class UpdateConfig extends OpenAPIRoute {
+	schema = {
+		tags: ["Config"],
+		summary: "Update configuration",
+		request: {
+			params: z.object({
+				id: z.string().describe("Config ID"),
+			}),
+			body: {
+				content: {
+					"application/json": {
+						schema: ConfigSchema.partial().omit({ id: true, created_at: true, modified_at: true, user: true }),
+					},
+				},
+			},
+		},
+		responses: {
+			"200": {
+				description: "Successful response",
+				content: {
+					"application/json": {
+						schema: ConfigSchema,
+					},
+				},
+			},
+			"401": { description: "Unauthorized" },
+			"404": { description: "Not found" },
+		},
+	};
+
+	async handle(c: any) {
+		const uid = await getUserId(c);
+		if (uid === null) return c.json({ status: "Unauthorized" }, 401);
+
+		const { id } = c.req.valid("param");
+		const body = await c.req.json();
+		const configService = new ConfigService(c.env.TABBY_STORE);
+		const conf = await configService.updateConfig(body, parseInt(id));
+		if (conf) {
+			return c.json(conf);
+		}
+		return c.json({ status: "Not found" }, 404);
+	}
+}
+
+export class DeleteConfig extends OpenAPIRoute {
+	schema = {
+		tags: ["Config"],
+		summary: "Delete configuration",
+		request: {
+			params: z.object({
+				id: z.string().describe("Config ID"),
+			}),
+		},
+		responses: {
+			"200": {
+				description: "Successful response",
+				content: {
+					"application/json": {
+						schema: z.null(),
+					},
+				},
+			},
+			"401": { description: "Unauthorized" },
+			"404": { description: "Not found" },
+		},
+	};
+
+	async handle(c: any) {
+		const uid = await getUserId(c);
+		if (uid === null) return c.json({ status: "Unauthorized" }, 401);
+
+		const { id } = c.req.valid("param");
+		const configService = new ConfigService(c.env.TABBY_STORE);
+		await configService.deleteConfig(parseInt(id));
+		return c.json(null);
+	}
+}
 
 // {
 //     "id": 5,
@@ -119,15 +323,7 @@ function nextId(configs: Config[]): number {
 //     "modified_at": "2024-03-23T14:46:08.604372Z",
 //     "user": 1
 //   }
-export type Config = {
-	id: number,
-	name: string,
-	content: string,
-	last_used_with_version: string,
-	created_at: string,
-	modified_at: string,
-	user: number
-}
+export type Config = z.infer<typeof ConfigSchema>;
 
 export {
 	ConfigService

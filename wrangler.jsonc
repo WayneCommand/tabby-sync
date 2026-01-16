@@ -26,7 +26,7 @@
 	 */
 	"kv_namespaces": [
 		{
-			"binding": "TABBY_STORE",
+			"binding": "KV",
 			"id": "fa9a1aa17c924f3f9ee8c8a9167a36a0"
 		}
 	],

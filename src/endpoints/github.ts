@@ -1,3 +1,8 @@
+import {OpenAPIRoute} from "chanfana";
+import {z} from "zod";
+import {UserService} from "./user";
+import {userKey} from "../service/util";
+
 const redirect_uri = "http://tabby.waynecommand.com/gh/auth/complete"
 
 const gh_authorize_uri = 'https://github.com/login/oauth/authorize'
@@ -132,6 +137,92 @@ function post(url: string, body: URLSearchParams): Promise<Response> {
     const request = new Request(url, _init)
 
     return fetch(request)
+}
+
+export class GithubAuthRequest extends OpenAPIRoute {
+    schema = {
+        tags: ["GitHub"],
+        summary: "Generate GitHub Auth URL",
+        responses: {
+            "200": {
+                description: "Successful response",
+                content: {
+                    "application/json": {
+                        schema: z.object({
+                            authUrl: z.string(),
+                        }),
+                    },
+                },
+            },
+        },
+    };
+
+    async handle(c: any) {
+        const githubService = new GithubService(c.env.TABBY_STORE, c.env.GH_CLIENT_ID, c.env.GH_CLIENT_SECRET);
+        const authUrl = await githubService.generateAuthUrl();
+        return c.json({ authUrl });
+    }
+}
+
+export class GithubAuthComplete extends OpenAPIRoute {
+    schema = {
+        tags: ["GitHub"],
+        summary: "GitHub Auth Callback",
+        request: {
+            query: z.object({
+                code: z.string().optional(),
+                state: z.string().optional(),
+            }),
+        },
+        responses: {
+            "302": {
+                description: "Redirect to complete page",
+            },
+            "400": {
+                description: "Invalid request",
+            },
+        },
+    };
+
+    async handle(c: any) {
+        const url = new URL(c.req.url);
+        const githubService = new GithubService(c.env.TABBY_STORE, c.env.GH_CLIENT_ID, c.env.GH_CLIENT_SECRET);
+        const userService = new UserService(c.env.TABBY_STORE);
+
+        let code = await githubService.verifyCode(url);
+        if (!code) {
+            return c.json({ status: "Invalid request" }, 400);
+        }
+
+        const token = await githubService.getToken(code);
+        if (!token || !token.access_token) {
+            return c.json({ status: "Invalid request" }, 400);
+        }
+
+        const user_gh = await githubService.getUserInfo(token.access_token);
+        if (!user_gh) {
+            return c.json({ status: "Invalid request" }, 400);
+        }
+
+        const tabbyUserKey = await userKey(user_gh.node_id, c.env.NAMESPACE_ID);
+
+        if (await userService.query(tabbyUserKey) === null) {
+            let _init_u = {
+                username: user_gh.name || user_gh.login,
+                config_sync_token: tabbyUserKey,
+                github_username: user_gh.login,
+                id: 0,
+                active_config: 0,
+                custom_connection_gateway: "",
+                custom_connection_gateway_token: "",
+                is_pro: true,
+                is_sponsor: false
+            };
+            await userService.add(_init_u);
+        }
+
+        return c.redirect(`/complete.html?userKey=${tabbyUserKey}`);
+    }
 }
 
 
