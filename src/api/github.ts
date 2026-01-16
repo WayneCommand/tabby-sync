@@ -1,4 +1,4 @@
-const redirect_uri = "https://token.grant.waynecommand.com/gh/auth/complete"
+const redirect_uri = "http://tabby.waynecommand.com/gh/auth/complete"
 
 const gh_authorize_uri = 'https://github.com/login/oauth/authorize'
 const gh_token_uri = 'https://github.com/login/oauth/access_token'
@@ -103,10 +103,11 @@ class GithubService {
         const response = await fetch(url, {
             headers: {
                 'Authorization': `token ${accessToken}`,
-                'Accept': 'application/vnd.github+json'
+                'Accept': 'application/vnd.github+json',
+                'User-Agent': 'Tabby-App'
             }
         })
-        return await response.json()
+        return await response.json() as UserInfo
     }
 
 }

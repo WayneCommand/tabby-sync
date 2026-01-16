@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tabby Sync Service</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            background: #fafafa;
+            color: #1a1a1a;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+        .navbar {
+            background: rgba(255, 255, 255, 0.98);
+            border-bottom: 1px solid #eaeaea;
+            position: fixed;
+            width: 100%;
+            top: 0;
+            z-index: 1000;
+            backdrop-filter: blur(10px);
+        }
+        .nav-container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 1rem 2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .nav-brand {
+            font-size: 1.25rem;
+            font-weight: 600;
+            color: #333;
+        }
+        .hero {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+            padding: 8rem 2rem 4rem;
+            background: linear-gradient(180deg, rgba(250,250,250,1) 0%, rgba(245,245,245,1) 100%);
+        }
+        .title {
+            font-size: 3.5rem;
+            font-weight: 600;
+            line-height: 1.2;
+            margin-bottom: 1.5rem;
+            background: linear-gradient(to right, #333, #666);
+            background-clip: text;
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        .subtitle {
+            font-size: 1.25rem;
+            color: #666;
+            max-width: 600px;
+            margin-bottom: 2.5rem;
+        }
+        .button-group {
+            display: flex;
+            gap: 1rem;
+        }
+        .secondary-button {
+            background-color: transparent;
+            color: #333;
+            padding: 0.75rem 2rem;
+            border-radius: 0.5rem;
+            font-weight: 500;
+            border: 1px solid rgba(51, 51, 51, 0.2);
+            transition: all 0.2s;
+        }
+        .secondary-button:hover {
+            background-color: rgba(51, 51, 51, 0.05);
+        }
+        .footer {
+            display: flex;
+            justify-content: center;
+            gap: 2rem;
+            padding: 2rem;
+            background: #fff;
+            border-top: 1px solid #eaeaea;
+        }
+        .footer a {
+            color: #666;
+            transition: color 0.2s;
+        }
+        .footer a:hover {
+            color: #333;
+        }
+    </style>
+    <script>
+        // 获取 URL 参数中的 userKey 并存储到 localStorage
+        document.addEventListener('DOMContentLoaded', function () {
+            function getQueryParam(name) {
+                const urlParams = new URLSearchParams(window.location.search);
+                return urlParams.get(name);
+            }
+            const userKey = getQueryParam('userKey');
+            if (userKey) {
+                localStorage.setItem('tabby-token', userKey);
+            }
+            // 3 秒后跳转到 configs.html
+            setTimeout(function () {
+                window.location.href = 'configs.html';
+            }, 3000);
+        });
+    </script>
+</head>
+<body>
+    <nav class="navbar">
+        <div class="nav-container">
+            <h1 class="nav-brand">Tabby Sync Service</h1>
+        </div>
+    </nav>
+    <main class="hero">
+        <h1 class="title">Tabby Sync Service</h1>
+        <p class="subtitle">Sync your Tabby config between devices. Based on cloudflare workers.</p>
+        <div class="button-group">
+            <button class="secondary-button">Learn more →</button>
+        </div>
+    </main>
+    <footer class="footer">
+        <a href="https://facebook.com" target="_blank">Facebook</a>
+        <a href="https://instagram.com" target="_blank">Instagram</a>
+        <a href="https://twitter.com" target="_blank">Twitter</a>
+        <a href="https://github.com" target="_blank">GitHub</a>
+        <a href="https://youtube.com" target="_blank">YouTube</a>
+    </footer>
+</body>
+</html>

@@ -10,11 +10,13 @@
  *
  * Learn more at https://developers.cloudflare.com/workers/
  */
-import {UserService} from "./api/user";
+import {UserService, User} from "./api/user";
 import {GithubService} from "./api/github";
 import {ConfigService, Config} from "./api/config";
 
+
 export default {
+
 	async fetch(request, env, ctx): Promise<Response> {
 
 		const url = new URL(request.url);
@@ -150,19 +152,50 @@ export default {
 		if (github_complete_api.test(url)) {
 			switch (method) {
 				case "GET": {
-					let code = await githubService.verifyCode(url)
-
-					console.log("github complete code: ", code)
-
 					// 拿到 Code 之后，立刻去获取 token，Code的时效非常短且只能使用一次
-					// 拿到 AccessToken 之后，保存一段时间，可以重复使用
-					if (code) {
-						const token = await githubService.getToken(code)
-						return Response.json(token)
+					let code = await githubService.verifyCode(url)
+					console.log("github complete code: ", code)
+					if(!code) {
+						return invalidRequest()
 					}
 
-					// 其他情况
-					return Response.json({"status": "invalid code"}, {status: 400})
+					// 拿到 AccessToken 之后，保存一段时间，可以重复使用
+					const token = await githubService.getToken(code)
+					console.log("github complete token: ", token)
+					if (!token) {
+						return invalidRequest()
+					}
+
+					// 获取Github用户资料
+					const user_gh = await githubService.getUserInfo(token.access_token)
+					console.log("github complete user_gh: ", user_gh)
+					if (!user_gh) {
+						return invalidRequest()
+					}
+
+					// 获取 UserKey，然后通过url参数redirect到完成页面，完成页面再获取用户资料，存储到 localStorage里
+					const tabbyUserKey = await userKey(user_gh.node_id, env.NAMESPACE_ID)
+
+					// 附加步骤： 检查用户，如果用户未创建，则创建用户
+
+					if (await userService.query(tabbyUserKey) === null) {
+
+						let _init_u: User = {
+							username: user_gh.name,
+							config_sync_token: tabbyUserKey,
+							github_username: user_gh.name,
+							id: 0, // non initialized
+							active_config: 0, // non initialized
+							custom_connection_gateway: "", // non initialized
+							custom_connection_gateway_token: "", // non initialized
+							is_pro: true, // non initialized
+							is_sponsor: false // non initialized
+						}
+
+						await userService.add(_init_u)
+					}
+					
+					return Response.redirect(`/complete.html?userKey=${tabbyUserKey}`)
 				}
 				default: {
 					return methodNotAllowed();
@@ -191,6 +224,31 @@ async function u(userService: UserService, token: string): Promise<number> {
 	return user.id;
 }
 
+// 生成 UserKey, 用于提供给用户和Tabby API，该算法提供的稳定性主要取决于 namespace_id
+function userKey(node_id: string, namespace_id: string): Promise<string> {
+	return str2sha256(`${namespace_id}:${node_id}`);
+}
+
+async function str2sha256(str: string) {
+	const encode = new TextEncoder().encode(str);
+		
+	const _digest = crypto.subtle.digest(
+		{
+			name: 'SHA-256',
+		},
+		encode // The data you want to hash as an ArrayBuffer
+	)
+
+	// to hex
+	return buf2hex(await _digest)
+}
+
+function buf2hex(buffer: ArrayBuffer): string { // buffer is an ArrayBuffer
+	return [...new Uint8Array(buffer)]
+		.map(x => x.toString(16).padStart(2, '0'))
+		.join('');
+}
+
 function unauthorized(): Response {
 	return Response.json({"status": "Unauthorized"}, {status: 401});
 }
@@ -201,4 +259,8 @@ function methodNotAllowed(): Response {
 
 function notFound(): Response {
 	return Response.json({"status": "Not found"}, {status: 404});
+}
+
+function invalidRequest(): Response {
+	return Response.json({"status": "Invalid request"}, {status: 400});
 }

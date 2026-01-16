@@ -2,6 +2,7 @@
 
 interface Env {
 	TABBY_STORE: KVNamespace;
+	NAMESPACE_ID: string; // recommended to use the same kv namespace id as wrangler.toml
 	GH_CLIENT_ID: string;
 	GH_CLIENT_SECRET: string;
 }
