@@ -31,6 +31,8 @@ export const securityConfig: SecurityConfig = {
 	}
 };
 
+export class SecurityMiddleware {
+
 	static cors(config: SecurityConfig['cors']) {
 		return (c: any, next: () => Promise<void>) => {
 			if (!config.enabled) return next();
@@ -60,11 +62,6 @@ export const securityConfig: SecurityConfig = {
 
 	static rateLimit(config: SecurityConfig['rateLimiting']) {
 		return (c: any, next: () => Promise<void>) => {
-			const clientIP = c.req.header('CF-Connecting-IP') || 
-							c.req.header('X-Forwarded-For') || 
-							c.req.header('X-Real-IP') || 
-							'unknown';
-
 			c.header('X-RateLimit-Limit', config.maxRequests.toString());
 			c.header('X-RateLimit-Remaining', Math.max(0, config.maxRequests - 1).toString());
 			c.header('X-RateLimit-Reset', new Date(Date.now() + config.windowMs).toISOString());
