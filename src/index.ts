@@ -32,7 +32,7 @@ const openapi = fromHono(app, {
 openapi.get("/secure", (c) => c.env.ASSETS.fetch(new Request(new URL('/secure.html', c.req.url).toString())));
 
 // OpenAPI routes
-openapi.get("/api/1/users", GetUser);
+openapi.get("/api/1/user", GetUser);
 
 // Config routes
 openapi.get("/api/1/configs", ListConfigs);

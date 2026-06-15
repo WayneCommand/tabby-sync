@@ -165,7 +165,7 @@
             async function initApp(token) {
                 try {
                     const [user, configs] = await Promise.all([
-                        fetch('/api/1/users', { headers: { Authorization: 'Bearer ' + token } }).then(r => r.json()),
+                        fetch('/api/1/user', { headers: { Authorization: 'Bearer ' + token } }).then(r => r.json()),
                         fetch('/api/1/configs', { headers: { Authorization: 'Bearer ' + token } }).then(r => r.json())
                     ]);
 
