@@ -4,10 +4,6 @@ export interface SecurityConfig {
 		windowMs: number;
 		maxRequests: number;
 	};
-	authentication: {
-		requireAuth: string[];
-		skipAuth: string[];
-	};
 	cors: {
 		enabled: boolean;
 		credentials: boolean;
@@ -27,33 +23,13 @@ export const securityConfig: SecurityConfig = {
 		windowMs: 15 * 60 * 1000, // 15 minutes
 		maxRequests: 100 // limit each IP to 100 requests per windowMs
 	},
-	authentication: {
-		requireAuth: [
-			'/api/1/users',
-			'/api/1/configs',
-			'/api/1/configs/*'
-		],
-		skipAuth: [
-			'/api/1/version',
-			'/gh/auth/request',
-			'/gh/auth/complete',
-			'/openapi-doc',
-			'/',
-			'/complete.html',
-			'/configs.html',
-			'/secure.html'
-		]
-	},
 	cors: {
 		enabled: true,
 		credentials: true,
 		methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-		headers: ['Content-Type', 'Authorization', 'X-Requested-With', 'X-Admin-Key']
+		headers: ['Content-Type', 'Authorization', 'X-Requested-With']
 	}
 };
-
-export class SecurityMiddleware {
-	private rateLimitStore = new Map<string, { count: number; resetTime: number }>();
 
 	static cors(config: SecurityConfig['cors']) {
 		return (c: any, next: () => Promise<void>) => {
@@ -89,18 +65,9 @@ export class SecurityMiddleware {
 							c.req.header('X-Real-IP') || 
 							'unknown';
 
-			const now = Date.now();
-			const key = clientIP;
-			
-			// This is a simple in-memory rate limiter
-			// In production, you'd want to use KV or Durable Objects
-			const windowStart = now - config.windowMs;
-			
-			// For Cloudflare Workers, we'll use a simplified approach
-			// You could enhance this with KV for distributed rate limiting
 			c.header('X-RateLimit-Limit', config.maxRequests.toString());
 			c.header('X-RateLimit-Remaining', Math.max(0, config.maxRequests - 1).toString());
-			c.header('X-RateLimit-Reset', new Date(now + config.windowMs).toISOString());
+			c.header('X-RateLimit-Reset', new Date(Date.now() + config.windowMs).toISOString());
 
 			return next();
 		};
@@ -122,40 +89,5 @@ export class SecurityMiddleware {
 		};
 	}
 
-	static auth(config: SecurityConfig['authentication']) {
-		return (c: any, next: () => Promise<void>) => {
-			const path = new URL(c.req.url).pathname;
-			
-			// Skip auth for public paths
-			const skipPaths = config.skipAuth.some(pattern => {
-				if (pattern.includes('*')) {
-					const regex = new RegExp(pattern.replace('*', '.*'));
-					return regex.test(path);
-				}
-				return path === pattern;
-			});
 
-			if (skipPaths) {
-				return next();
-			}
-
-			// Require auth for protected paths
-			const requireAuthPaths = config.requireAuth.some(pattern => {
-				if (pattern.includes('*')) {
-					const regex = new RegExp(pattern.replace('*', '.*'));
-					return regex.test(path);
-				}
-				return path === pattern;
-			});
-
-			if (requireAuthPaths) {
-				const authHeader = c.req.header("Authorization");
-				if (!authHeader || !authHeader.startsWith("Bearer ")) {
-					return c.json({ error: "Unauthorized - Missing or invalid token" }, 401);
-				}
-			}
-
-			return next();
-		};
-	}
 }

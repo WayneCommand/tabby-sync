@@ -106,10 +106,9 @@ z.string().min(1).max(100).describe("Configuration name")
 - Migration status tracking
 - Admin endpoints for migration management
 
-**Migration Endpoints**:
-- `POST /admin/migrate` - Execute migration
-- `GET /admin/migration-status` - Check status
-- `POST /admin/rollback` - Rollback if needed
+**Migration**:
+- Data migration should be performed via direct KV operations or one-time scripts
+- No permanent admin endpoints needed for migration process
 
 ## 🔒 Security Hardening
 
@@ -142,19 +141,9 @@ z.string().min(1).max(100).describe("Configuration name")
 
 ## 🔄 Migration Process
 
-### For Production Deployment:
+### Migration Note:
 
-1. **Deploy Updated Code**: Deploy the new optimized code
-2. **Execute Migration**: `POST /admin/migrate` with admin key
-3. **Verify Migration**: `GET /admin/migration-status`
-4. **Monitor Performance**: Observe cache hit rates and response times
-5. **Cleanup**: Remove old array-based data after verification
-
-### Admin Key Setup:
-```bash
-wrangler secret put ADMIN_KEY
-# Enter a secure admin key when prompted
-```
+Since admin endpoints have been removed, data migration (if needed) should be performed through one-time scripts or direct KV operations. The optimized code will work with existing array-based data and gradually migrate to key-based storage as data is updated.
 
 ## 📁 New File Structure
 
@@ -172,8 +161,7 @@ src/
 │   ├── user.ts           # Updated user endpoints
 │   ├── config.ts         # Updated config endpoints
 │   ├── github.ts         # Updated GitHub endpoints
-│   ├── version.ts        # Version endpoint
-│   └── migration.ts      # Admin migration endpoints
+│   └── version.ts        # Version endpoint
 └── index.ts              # Updated main application
 ```
 

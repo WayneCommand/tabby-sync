@@ -1,24 +1,8 @@
 import {OpenAPIRoute} from "chanfana";
 import {z} from "zod";
-import {UserService} from "../service/user";
 import {ConfigService, ConfigSchema, Config} from "../service/config";
 import { SyncError } from "../service/store";
-
-async function getUserId(c: any) {
-	try {
-		const authHeader = c.req.header("Authorization");
-		if (!authHeader || !authHeader.startsWith("Bearer ")) {
-			return null;
-		}
-		const token = authHeader.substring(7);
-		const userService = new UserService(c.env.KV);
-		const user = await userService.findByToken(token);
-		return user ? user.id : null;
-	} catch (error) {
-		console.error('Error getting user ID:', error);
-		return null;
-	}
-}
+import { getUserId } from "../auth/auth";
 
 export class ListConfigs extends OpenAPIRoute {
 	schema = {
@@ -39,7 +23,7 @@ export class ListConfigs extends OpenAPIRoute {
 
 	async handle(c: any) {
 		try {
-			const uid = await getUserId(c);
+			const uid = getUserId(c);
 			if (uid === null) return c.json({ status: "Unauthorized" }, 401);
 
 			const configService = new ConfigService(c.env.KV);
@@ -91,7 +75,7 @@ export class CreateConfig extends OpenAPIRoute {
 
 	async handle(c: any) {
 		try {
-			const uid = await getUserId(c);
+			const uid = getUserId(c);
 			if (uid === null) return c.json({ status: "Unauthorized" }, 401);
 
 			const body = await c.req.json();
@@ -137,7 +121,7 @@ export class GetConfig extends OpenAPIRoute {
 
 	async handle(c: any) {
 		try {
-			const uid = await getUserId(c);
+			const uid = getUserId(c);
 			if (uid === null) return c.json({ status: "Unauthorized" }, 401);
 
 			const { id } = c.req.valid("param");
@@ -201,7 +185,7 @@ export class UpdateConfig extends OpenAPIRoute {
 
 	async handle(c: any) {
 		try {
-			const uid = await getUserId(c);
+			const uid = getUserId(c);
 			if (uid === null) return c.json({ status: "Unauthorized" }, 401);
 
 			const { id } = c.req.valid("param");
@@ -262,7 +246,7 @@ export class DeleteConfig extends OpenAPIRoute {
 
 	async handle(c: any) {
 		try {
-			const uid = await getUserId(c);
+			const uid = getUserId(c);
 			if (uid === null) return c.json({ status: "Unauthorized" }, 401);
 
 			const { id } = c.req.valid("param");

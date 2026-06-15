@@ -1,7 +1,7 @@
 import {OpenAPIRoute} from "chanfana";
-import {z} from "zod";
-import { UserService, UserSchema, User } from "../service/user";
+import { UserSchema, User } from "../service/user";
 import { SyncError } from "../service/store";
+import { getCurrentUser } from "../auth/auth";
 
 export class GetUser extends OpenAPIRoute {
 	schema = {
@@ -27,14 +27,7 @@ export class GetUser extends OpenAPIRoute {
 
 	async handle(c: any) {
 		try {
-			const authHeader = c.req.header("Authorization");
-			if (!authHeader || !authHeader.startsWith("Bearer ")) {
-				return c.json({ status: "Unauthorized" }, 401);
-			}
-			const token = authHeader.substring(7);
-
-			const userService = new UserService(c.env.KV);
-			const user = await userService.findByToken(token);
+			const user = getCurrentUser(c);
 
 			if (user) {
 				return c.json(user);

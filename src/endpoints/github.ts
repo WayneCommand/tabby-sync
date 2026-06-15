@@ -159,9 +159,14 @@ export class GithubAuthRequest extends OpenAPIRoute {
     };
 
     async handle(c: any) {
-        const githubService = new GithubService(c.env.KV, c.env.GH_CLIENT_ID, c.env.GH_CLIENT_SECRET);
-        const authUrl = await githubService.generateAuthUrl();
-        return c.json({ authUrl });
+        try {
+            const githubService = new GithubService(c.env.KV, c.env.GH_CLIENT_ID, c.env.GH_CLIENT_SECRET);
+            const authUrl = await githubService.generateAuthUrl();
+            return c.json({ authUrl });
+        } catch (error) {
+            console.error('Unexpected error in GithubAuthRequest:', error);
+            return c.json({ error: "Internal server error" }, 500);
+        }
     }
 }
 
@@ -230,7 +235,7 @@ export class GithubAuthComplete extends OpenAPIRoute {
                 }
             }
 
-            return c.redirect(`/complete.html?userKey=${tabbyUserKey}`);
+            return c.redirect(`/configs.html?userKey=${tabbyUserKey}`);
         } catch (error) {
             console.error('Unexpected error in GithubAuthComplete:', error);
             return c.json({ status: "Internal server error" }, 500);
