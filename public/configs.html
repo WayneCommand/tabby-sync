@@ -1,402 +1,239 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Tabby Sync Service</title>
+    <title>Tabby Sync - Configs</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         body {
-            background-color: #f5f5f7;
+            background: #f5f5f7;
             color: #1d1d1f;
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
         }
-        .bento-grid {
-            display: flex;
-            flex-direction: column;
-            gap: 0.5rem;
-        }
-        .bento-card {
-            background-color: white;
-            border-radius: 0.5rem;
-            overflow: hidden;
-            transition: background-color 0.2s ease-in-out;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 1rem 1.5rem;
-        }
-        .bento-card:hover {
-            background-color: rgba(255, 255, 255, 0.8);
-            transform: none;
-            box-shadow: none;
-        }
-        .config-info {
-            display: flex;
-            flex-direction: column;
-            gap: 0.25rem;
-        }
-        .config-title-wrapper {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
-        .config-dot {
-            width: 8px;
-            height: 8px;
+        .profile-avatar {
+            width: 64px;
+            height: 64px;
             border-radius: 50%;
-            background: #bbb;
-            flex-shrink: 0;
+            background: #e5e5ea;
         }
-        .bento-card.active .config-dot {
-            background: #2196f3;
+        .info-card {
+            background: rgba(255,255,255,0.8);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid rgba(0,0,0,0.06);
         }
-        .config-title {
-            font-weight: 500;
-            color: #1a1a1a;
+        .tab-btn.active {
+            color: #1d1d1f;
+            border-bottom: 2px solid #1d1d1f;
         }
-        .config-meta {
-            color: #6b7280;
-            font-size: 0.875rem;
-            display: flex;
-            gap: 12px;
+        .tab-btn {
+            color: #8e8e93;
+            transition: all 0.2s;
         }
-        .config-actions {
-            display: flex;
-            gap: 0.5rem;
+        .tab-btn:hover {
+            color: #1d1d1f;
         }
-        .config-button {
-            padding: 0.375rem 0.75rem;
-            border-radius: 0.375rem;
-            font-size: 0.875rem;
-            background-color: #f3f4f6;
-            color: #374151;
-            transition: background-color 0.2s;
+        .config-row {
+            transition: background 0.15s;
         }
-        .config-button:hover {
-            background-color: #e5e7eb;
+        .config-row:hover {
+            background: #f0f0f2;
         }
-        /* Modal styles */
-        .modal-backdrop {
-            display: none;
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background-color: rgba(0, 0, 0, 0.5);
-            z-index: 50;
-        }
-        .modal-backdrop.show {
-            display: flex;
-            justify-content: center;
-            align-items: center;
-        }
-        .modal-content {
-            background: white;
-            border-radius: 0.5rem;
-            padding: 1.5rem;
-            max-width: 90%;
-            width: 600px;
-            max-height: 90vh;
-            overflow-y: auto;
-        }
-        .modal-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 1rem;
-        }
-        .modal-title {
-            font-size: 1.25rem;
-            font-weight: 600;
-        }
-        .modal-close {
-            background: none;
-            border: none;
-            font-size: 1.5rem;
-            cursor: pointer;
-            padding: 0.5rem;
-            color: #666;
-        }
-        .modal-body {
-            white-space: pre-wrap;
-            font-family: monospace;
+        .token-display {
+            font-family: 'SF Mono', 'SFMono-Regular', 'ui-monospace', 'DejaVu Sans Mono', monospace;
+            font-size: 0.8125rem;
+            word-break: break-all;
             background: #f5f5f7;
-            padding: 1rem;
-            border-radius: 0.375rem;
-            max-height: 60vh;
-            overflow-y: auto;
+            border: 1px solid #e5e5ea;
         }
     </style>
 </head>
-<body>
+<body class="min-h-screen flex flex-col">
     <header class="sticky top-0 bg-white/80 backdrop-blur-md border-b border-gray-200 z-10">
-        <div class="container mx-auto px-4 py-4 flex justify-between items-center">
-            <h1 class="text-2xl font-semibold">Tabby Sync Service</h1>
-            <button id="github-login" class="bg-gray-900 hover:bg-gray-800 text-white px-4 py-2 rounded-md flex items-center gap-2 transition-colors">
-                <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
-                    <path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/>
-                </svg>
-                Login with GitHub
-            </button>
+        <div class="max-w-6xl mx-auto px-6 py-4 flex justify-between items-center">
+            <h1 class="text-xl font-semibold">Tabby Sync Service</h1>
+            <div class="flex items-center gap-3">
+                <span id="header-user" class="text-sm text-gray-500 hidden"></span>
+                <button id="logout-btn" class="text-sm text-gray-500 hover:text-gray-800 transition-colors hidden">退出</button>
+            </div>
         </div>
     </header>
 
-    <div id="config-modal" class="modal-backdrop">
-        <div class="modal-content">
-            <div class="modal-header">
-                <div class="modal-title"></div>
-                <button class="modal-close">&times;</button>
-            </div>
-            <div class="modal-body"></div>
-        </div>
-    </div>
-
-    <div id="confirm-modal" class="modal-backdrop">
-        <div class="modal-content" style="max-width: 400px">
-            <div class="modal-header">
-                <div class="modal-title">确认操作</div>
-                <button class="modal-close">&times;</button>
-            </div>
-            <div class="p-4">
-                <p class="text-gray-700 mb-4">确定要使用 GitHub 账号登录吗？</p>
-                <div class="flex justify-end gap-3">
-                    <button class="px-4 py-2 text-gray-600 bg-gray-100 rounded-md hover:bg-gray-200 transition-colors" id="cancel-login">取消</button>
-                    <button class="px-4 py-2 text-white bg-gray-900 rounded-md hover:bg-gray-800 transition-colors" id="confirm-login">确认登录</button>
+    <main class="flex-1 max-w-6xl mx-auto w-full px-6 py-8">
+        <div class="flex gap-8">
+            <!-- Left: User Profile Card -->
+            <aside class="w-72 shrink-0">
+                <div id="profile-card" class="info-card rounded-2xl p-6 hidden">
+                    <div class="flex flex-col items-center text-center mb-5">
+                        <img id="avatar-img" class="profile-avatar mb-3" alt="avatar" />
+                        <h2 id="display-name" class="text-lg font-semibold"></h2>
+                        <p id="github-name" class="text-sm text-gray-500"></p>
+                    </div>
+                    <div class="border-t border-gray-200/60 pt-4 space-y-3 text-sm">
+                        <div class="flex justify-between">
+                            <span class="text-gray-500">User ID</span>
+                            <span id="user-id" class="font-medium"></span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span class="text-gray-500">Pro</span>
+                            <span id="user-pro" class="font-medium"></span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span class="text-gray-500">Sponsor</span>
+                            <span id="user-sponsor" class="font-medium"></span>
+                        </div>
+                    </div>
                 </div>
-            </div>
-        </div>
-    </div>
 
-    <main class="container mx-auto px-4 py-12">
-        <div class="max-w-screen-xl mx-auto">
-            <h2 class="text-3xl font-bold mb-8 text-center">User Information</h2>
-            <div id="user-container" class="bento-grid">
-                <!-- User cards will be inserted here -->
+                <div id="login-prompt" class="info-card rounded-2xl p-8 text-center">
+                    <p class="text-gray-500 mb-4">请先登录</p>
+                    <a href="/" class="inline-block bg-gray-900 text-white px-5 py-2 rounded-lg text-sm hover:bg-gray-800 transition-colors">返回首页</a>
+                </div>
+            </aside>
+
+            <!-- Right: Tabbed Content -->
+            <div class="flex-1 min-w-0">
+                <!-- Tab bar -->
+                <div class="flex gap-6 border-b border-gray-200 mb-6">
+                    <button class="tab-btn active pb-3 text-sm font-medium" data-tab="configs">配置列表</button>
+                    <button class="tab-btn pb-3 text-sm font-medium" data-tab="token">Token</button>
+                </div>
+
+                <!-- Tab: Configs -->
+                <div id="tab-configs" class="tab-content">
+                    <div id="config-list" class="space-y-1">
+                        <!-- config rows injected here -->
+                    </div>
+                    <div id="config-empty" class="text-center py-16 text-gray-400 hidden">
+                        <p class="text-lg mb-1">暂无配置</p>
+                        <p class="text-sm">从 Tabby 终端应用同步配置后将会显示在这里</p>
+                    </div>
+                </div>
+
+                <!-- Tab: Token -->
+                <div id="tab-token" class="tab-content hidden">
+                    <div class="info-card rounded-2xl p-6">
+                        <h3 class="text-sm font-medium text-gray-500 mb-3">Sync Token</h3>
+                        <div id="token-display" class="token-display rounded-xl p-4 mb-4 select-all"></div>
+                        <button id="copy-token-btn" class="text-sm text-white bg-gray-900 px-4 py-2 rounded-lg hover:bg-gray-800 transition-colors">复制 Token</button>
+                    </div>
+                </div>
             </div>
         </div>
     </main>
 
     <script>
-        document.addEventListener('DOMContentLoaded', function() {
-            // GitHub login button
-            document.getElementById('github-login').addEventListener('click', async (e) => {
-                e.preventDefault();
-                const confirmModal = document.getElementById('confirm-modal');
-                const closeBtn = confirmModal.querySelector('.modal-close');
-                const cancelBtn = document.getElementById('cancel-login');
-                const confirmBtn = document.getElementById('confirm-login');
+        document.addEventListener('DOMContentLoaded', () => {
+            // ---------- init ----------
+            const token = new URLSearchParams(location.search).get('userKey') || localStorage.getItem('tabby-token');
+            if (token) {
+                localStorage.setItem('tabby-token', token);
+                // clean url
+                if (location.search) history.replaceState(null, '', location.pathname);
+                initApp(token);
+            }
 
-                const closeModal = () => {
-                    confirmModal.classList.remove('show');
-                    document.removeEventListener('keydown', handleEscKey);
-                };
-
-                const handleEscKey = (event) => {
-                    if (event.key === 'Escape') {
-                        closeModal();
-                    }
-                };
-
-                const handleBackdropClick = (event) => {
-                    if (event.target === confirmModal) {
-                        closeModal();
-                    }
-                };
-
-                const handleLogin = async () => {
-                    try {
-                        const response = await fetch('/gh/auth/request');
-                        const data = await response.json();
-                        if (data.authUrl) {
-                            window.location.href = data.authUrl;
-                        }
-                    } catch (error) {
-                        console.error('Error getting GitHub auth URL:', error);
-                    }
-                    closeModal();
-                };
-
-                // 添加事件监听器
-                closeBtn.addEventListener('click', closeModal);
-                cancelBtn.addEventListener('click', closeModal);
-                confirmBtn.addEventListener('click', handleLogin);
-                confirmModal.addEventListener('click', handleBackdropClick);
-                document.addEventListener('keydown', handleEscKey);
-
-                // 显示模态框
-                confirmModal.classList.add('show');
+            // ---------- tab switching ----------
+            document.querySelectorAll('.tab-btn').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+                    btn.classList.add('active');
+                    document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
+                    document.getElementById('tab-' + btn.dataset.tab).classList.remove('hidden');
+                });
             });
 
-            // Fetch user data and configs
-            async function fetchUserData() {
-                const token = localStorage.getItem('tabby-token');
-                if (!token) {
-                    console.error('No authentication token found');
+            // ---------- logout ----------
+            document.getElementById('logout-btn').addEventListener('click', () => {
+                localStorage.removeItem('tabby-token');
+                location.href = '/';
+            });
+
+            // ---------- copy token ----------
+            document.getElementById('copy-token-btn').addEventListener('click', async () => {
+                const text = document.getElementById('token-display').textContent;
+                try {
+                    await navigator.clipboard.writeText(text);
+                    const btn = document.getElementById('copy-token-btn');
+                    btn.textContent = '已复制';
+                    setTimeout(() => btn.textContent = '复制 Token', 2000);
+                } catch {}
+            });
+
+            // ---------- main ----------
+            async function initApp(token) {
+                try {
+                    const [user, configs] = await Promise.all([
+                        fetch('/api/1/users', { headers: { Authorization: 'Bearer ' + token } }).then(r => r.json()),
+                        fetch('/api/1/configs', { headers: { Authorization: 'Bearer ' + token } }).then(r => r.json())
+                    ]);
+
+                    renderProfile(user);
+                    renderConfigs(Array.isArray(configs) ? configs : []);
+                    renderToken(token);
+                    toggleUI(true);
+                } catch (e) {
+                    console.error('init error', e);
+                }
+            }
+
+            function renderProfile(u) {
+                document.getElementById('display-name').textContent = u.username || 'Unnamed';
+                document.getElementById('github-name').textContent = '@' + (u.github_username || '-');
+                document.getElementById('user-id').textContent = u.id;
+                document.getElementById('user-pro').textContent = u.is_pro ? 'Yes' : 'No';
+                document.getElementById('user-sponsor').textContent = u.is_sponsor ? 'Yes' : 'No';
+                document.getElementById('avatar-img').src = 'https://github.com/' + (u.github_username || '') + '.png?size=80';
+                document.getElementById('header-user').textContent = u.username || '';
+            }
+
+            function renderConfigs(configs) {
+                const list = document.getElementById('config-list');
+                const empty = document.getElementById('config-empty');
+                list.innerHTML = '';
+
+                if (configs.length === 0) {
+                    empty.classList.remove('hidden');
                     return;
                 }
+                empty.classList.add('hidden');
 
-                try {
-                    // 先获取用户数据
-                    const userResponse = await fetch('/api/1/users', {
-                        headers: {
-                            'Authorization': `Bearer ${token}`
-                        }
-                    });
-
-                    if (!userResponse.ok) {
-                        throw new Error('Failed to fetch user data');
-                    }
-
-                    const userData = await userResponse.json();
-                    // 保存用户数据到 sessionStorage
-                    sessionStorage.setItem('tabby-user', JSON.stringify(userData));
-
-                    // 获取配置列表
-                    const configResponse = await fetch('/api/1/configs', {
-                        headers: {
-                            'Authorization': `Bearer ${token}`
-                        }
-                    });
-
-                    if (!configResponse.ok) {
-                        throw new Error('Failed to fetch config data');
-                    }
-
-                    const configData = await configResponse.json();
-                    displayConfigData(configData);
-                } catch (error) {
-                    console.error('Error fetching data:', error);
-                }
+                configs.forEach(c => {
+                    const row = document.createElement('div');
+                    row.className = 'config-row flex justify-between items-center px-4 py-3 rounded-xl';
+                    const time = c.modified_at ? c.modified_at.replace('T', ' ').slice(0, 19) : '-';
+                    row.innerHTML = `
+                        <div>
+                            <div class="font-medium text-sm">${c.name || 'Unnamed'}</div>
+                            <div class="text-xs text-gray-400 mt-0.5">${time}</div>
+                        </div>
+                        <span class="text-xs text-gray-400">${timeAgo(c.modified_at)}</span>
+                    `;
+                    list.appendChild(row);
+                });
             }
 
-            // Display user data in bento grid
-            function displayConfigData(configData) {
-                const container = document.getElementById('user-container');
-                container.innerHTML = '';
-
-                if (Array.isArray(configData)) {
-                    configData.forEach(config => {
-                        container.appendChild(createConfigCard(config));
-                    });
-                } else if (configData) {
-                    container.appendChild(createConfigCard(configData));
-                }
+            function renderToken(t) {
+                document.getElementById('token-display').textContent = t;
             }
 
-            function showConfigModal(config) {
-                const modal = document.getElementById('config-modal');
-                const title = modal.querySelector('.modal-title');
-                const body = modal.querySelector('.modal-body');
-                const close = modal.querySelector('.modal-close');
-
-                title.textContent = config.name || 'Unnamed Config';
-                body.textContent = config.content || '无内容';
-                
-                modal.classList.add('show');
-
-                // 关闭按钮点击事件
-                const closeModal = () => {
-                    modal.classList.remove('show');
-                    close.removeEventListener('click', closeModal);
-                    modal.removeEventListener('click', handleBackdropClick);
-                };
-
-                // 点击背景关闭
-                const handleBackdropClick = (event) => {
-                    if (event.target === modal) {
-                        closeModal();
-                    }
-                };
-
-                close.addEventListener('click', closeModal);
-                modal.addEventListener('click', handleBackdropClick);
-
-                // ESC 键关闭
-                const handleEscKey = (event) => {
-                    if (event.key === 'Escape') {
-                        closeModal();
-                        document.removeEventListener('keydown', handleEscKey);
-                    }
-                };
-                document.addEventListener('keydown', handleEscKey);
-            }
-
-            // Create a card for a config
-            function createConfigCard(config) {
-                const card = document.createElement('div');
-                // 从 sessionStorage 获取用户数据，检查是否是激活的配置
-                const userData = JSON.parse(sessionStorage.getItem('tabby-user') || '{}');
-                const isActive = userData.active_config === config.id;
-                card.className = 'bento-card' + (isActive ? ' active' : '');
-
-                const info = document.createElement('div');
-                info.className = 'config-info';
-
-                const titleWrapper = document.createElement('div');
-                titleWrapper.className = 'config-title-wrapper';
-
-                const dot = document.createElement('span');
-                dot.className = 'config-dot';
-                titleWrapper.appendChild(dot);
-
-                const title = document.createElement('div');
-                title.className = 'config-title';
-                title.textContent = config.name || 'Unnamed Config';
-                titleWrapper.appendChild(title);
-
-                info.appendChild(titleWrapper);
-
-                const meta = document.createElement('div');
-                meta.className = 'config-meta';
-                
-                const created = document.createElement('span');
-                created.textContent = `创建: ${config.created_at ? config.created_at.replace('T', ' ').slice(0, 16) : '-'}`;
-                
-                const updated = document.createElement('span');
-                updated.textContent = `更新: ${config.modified_at ? config.modified_at.replace('T', ' ').slice(0, 16) : '-'}`;
-                
-                const ago = document.createElement('span');
-                ago.textContent = config.modified_at ? timeAgo(config.modified_at) : '';
-
-                meta.appendChild(created);
-                meta.appendChild(updated);
-                meta.appendChild(ago);
-
-                info.appendChild(meta);
-
-                const actions = document.createElement('div');
-                actions.className = 'config-actions';
-
-                const detailButton = document.createElement('button');
-                detailButton.className = 'config-button';
-                detailButton.textContent = '显示详细';
-                detailButton.addEventListener('click', () => showConfigModal(config));
-
-                actions.appendChild(detailButton);
-
-                card.appendChild(info);
-                card.appendChild(actions);
-
-                return card;
+            function toggleUI(show) {
+                document.getElementById('profile-card').classList.toggle('hidden', !show);
+                document.getElementById('login-prompt').classList.toggle('hidden', show);
+                document.getElementById('header-user').classList.toggle('hidden', !show);
+                document.getElementById('logout-btn').classList.toggle('hidden', !show);
             }
 
             function timeAgo(dateStr) {
-                const now = new Date("2025-04-23T14:41:50+08:00");
-                const date = new Date(dateStr);
-                const diff = now - date;
-                const days = Math.floor(diff / (1000 * 60 * 60 * 24));
-                if (days > 0) return `${days}天前`;
-                const hours = Math.floor(diff / (1000 * 60 * 60));
-                if (hours > 0) return `${hours}小时前`;
-                const mins = Math.floor(diff / (1000 * 60));
-                if (mins > 0) return `${mins}分钟前`;
-                return "刚刚";
+                const now = Date.now();
+                const d = new Date(dateStr).getTime();
+                const diff = (now - d) / 1000;
+                if (diff < 60) return '刚刚';
+                if (diff < 3600) return Math.floor(diff / 60) + '分钟前';
+                if (diff < 86400) return Math.floor(diff / 3600) + '小时前';
+                return Math.floor(diff / 86400) + '天前';
             }
-
-            // Initialize
-            fetchUserData();
         });
     </script>
 </body>
